@@ -88,7 +88,9 @@ public class LinkCreateWtfInvestigation {
     @Test
     public void gatherSamples() throws NoSuchMethodException, SecurityException {
         itWorks("hello", "hello");
+        itWorks(" $%&", "+%24%25&");
         itWorks("üöä", "%C3%BC%C3%B6%C3%A4");
+        itWorks("\"\"\"", "%22%22%22");
         itFails("{\"foo\":\"bar\"}", IllegalArgumentException.class);
         // Huh?
         itFails("%7B%22foo%22%3A%22bar%22%7D", IllegalArgumentException.class);
