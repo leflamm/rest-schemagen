@@ -1,12 +1,14 @@
 package com.mercateo.common.rest.schemagen.link;
 
-import static com.mercateo.common.rest.schemagen.link.helper.ParameterAnnotationVisitor.visitAnnotations;
-import static java.util.Objects.requireNonNull;
+import static com.mercateo.common.rest.schemagen.link.helper.ParameterAnnotationVisitor.*;
+import static java.util.Objects.*;
 
+import java.io.UnsupportedEncodingException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -30,9 +32,12 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriBuilder;
 
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.googlecode.gentyref.GenericTypeReflector;
 import com.mercateo.common.rest.schemagen.JsonSchemaGenerator;
 import com.mercateo.common.rest.schemagen.link.relation.Relation;
+
+import jersey.repackaged.com.google.common.base.Joiner;
 
 public class LinkCreator {
     public static final String TARGET_SCHEMA_PARAM_KEY = "targetSchema";
@@ -135,7 +140,8 @@ public class LinkCreator {
     }
 
     private void addLinkProperties(List<Scope> scopes, Builder builder) {
-        final LinkProperties properties = Iterables.getLast(scopes).getInvokedMethod()
+        final LinkProperties properties = Iterables.getLast(scopes)
+                .getInvokedMethod()
                 .getAnnotation(LinkProperties.class);
         if (properties != null) {
             Stream.of(properties.value()).forEach(x -> builder.param(x.key(), x.value()));
@@ -188,10 +194,40 @@ public class LinkCreator {
                     BeanParamExtractor beanParamExtractor = new BeanParamExtractor();
                     Map<String, Object[]> queryParameter = beanParamExtractor.getQueryParameters(
                             parameter);
+
+                    /*
+                    // begin hack
+                    queryParameter.entrySet().forEach(
+                            e -> {
+                                e.setValue(Arrays.stream(e.getValue())
+                                        .map(o -> sneakyUrlEncode(o.toString()))
+                                        .toArray(Object[]::new));
+                            });
+
+                    printObjectArrayValueMap(queryParameter);
+                    // end hack
+                     
+                     */
+
                     queryParameter.forEach((uriBuilder::queryParam));
                 }
             }
         }, scope.getInvokedMethod(), parameters);
+    }
+
+    private static String sneakyUrlEncode(String s) {
+        try {
+            // return "";
+            return URLEncoder.encode(s, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+            return "";
+        }
+    }
+
+    private static void printObjectArrayValueMap(Map<?, Object[]> m) {
+        m.entrySet().forEach(e -> System.out.println(e.getKey() + " -> [" + Joiner.on(",").join(
+                Lists.newArrayList(e.getValue())) + "]"));
     }
 
     private void addHttpMethod(Builder builder, Scope scope) {
@@ -199,15 +235,18 @@ public class LinkCreator {
                 POST.class, PUT.class, DELETE.class);
         final Method invokedMethod = scope.getInvokedMethod();
         final Optional<Class<? extends Annotation>> httpMethod = httpMethodAnnotations.stream()
-                .filter(invokedMethod::isAnnotationPresent).findFirst();
+                .filter(invokedMethod::isAnnotationPresent)
+                .findFirst();
 
         if (httpMethod.isPresent()) {
             builder.param(METHOD_PARAM_KEY, httpMethod.get().getSimpleName());
         } else {
             throw new IllegalArgumentException(
                     "LinkCreator: The method has to be annotated with one of: " + String.join(", ",
-                            (Iterable<String>) httpMethodAnnotations.stream().map(
-                                    Class::getSimpleName).map(m -> '@' + m)::iterator));
+                            (Iterable<String>) httpMethodAnnotations.stream()
+                                    .map(
+                                            Class::getSimpleName)
+                                    .map(m -> '@' + m)::iterator));
         }
     }
 
